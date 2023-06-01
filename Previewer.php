@@ -1,75 +1,91 @@
-<?php declare(strict_types=1);
-
-// Необходимо реализовать класс, функция которого делать превью строки.
-// На вход мы подаем абзац текста, вы выходе получаем превью текста.
-// Сначала отсекаем по кол-ву слов, затем ищем вхождение стоп слова(последнее), и если оно встречается, то обрезаем строку по нему, если нет, возвращаем превью обрезанное по кол-ву слов.
-// Класс должен быть конфигурируемый, как минимум длинна обрезаемого текста и стоп слова(может быть несколько).
-// В идеале покрыть тестами.
-
+<?php
 
 class Previewer
 {
-    private $originText;
-    private $previewText;
-    private $isReturnOrigin = true;
+    private int $wordCount;
+    private array $stopWords;
+    private string $postfix;
+    private bool $needFormat = false;
 
-    public function __construct(string $text)
+    /**
+     * @param int $wordCount
+     * @param array $stopWords
+     * @param bool $isOneLine
+     * @param string $postfix
+     * @throws Exception
+     */
+    public function __construct(int $wordCount, array $stopWords = [], bool $isOneLine = false, string $postfix = '')
     {
-        $this->originText = $text;
-    }
-
-    public function makePreview(int $words_count, string ...$stop_words): string
-    {
-        $this->previewText = $this->originText;
-        $this->isReturnOrigin = true;
-
-        if ($words_count < 1) {
-            throw new InvalidArgumentException('"words_count" must be greater, than 1');
+        if ($wordCount <= 0) {
+            throw new Exception('аргумент $wordCount должен быть больше 0', 400);
         }
-
-        $words = $this->getWordsAsArray($words_count);
-        $lastIndex = $this->getIndexOfLastWord($words, $stop_words);
-        $this->cutText($lastIndex);
-
-        return $this->previewText;
-    }
-
-    private function getWordsAsArray(int $words_count): array
-    {
-        $this->previewText .= ' ';
-        $pattern = '/[^\w]*[\s]+[^\w]*/';
-        $words = preg_split($pattern, $this->previewText, $words_count + 1, PREG_SPLIT_NO_EMPTY | PREG_SPLIT_OFFSET_CAPTURE);
-        if (count($words) > $words_count) {
-            $this->isReturnOrigin = false;
-            unset($words[array_key_last($words)]);
-        }
-
-        return $words;
-    }
-
-    private function getIndexOfLastWord(array $words, array $stop_words): int
-    {
-        if (!empty($words)) {
-            foreach (array_reverse($words, true) as $key => $originWord) {
-                foreach ($stop_words as $searchWord) {
-                    if (strcasecmp($originWord[0], trim($searchWord)) === 0) {
-                        $this->isReturnOrigin = false;
-                        return $originWord[1] + strlen($originWord[0]);
-                    }
-                }
+        if (!empty($stopWords)) {
+            $notStringData = (array_filter($stopWords, function ($world) {
+                return !is_string($world);
+            }));
+            if (!empty($notStringData)) {
+                throw new Exception('аргумент $stopWords должен массив строк', 400);
             }
-            $lastWord = end($words);
-            return $lastWord[1] + strlen($lastWord[0]);
         }
-        return 0;
+
+        $this->wordCount = $wordCount;
+        $this->stopWords = $stopWords;
+        $this->postfix = $postfix;
     }
 
-    private function cutText(int $lastIndex): void
+    public function createPreview(string $text): string
     {
-        if ($this->isReturnOrigin) {
-            $this->previewText = $this->originText;
-        } else {
-            $this->previewText = substr($this->previewText, 0, $lastIndex);
+        $croppedText = $this->cropViaCount($text);
+        $croppedText = $this->cropViaStopWorlds($croppedText);
+
+        return $this->format($croppedText);
+    }
+
+    private function cropViaCount(string $text): string
+    {
+        $worlds = preg_split(
+            "/[\s,]+/",
+            $text,
+            $this->wordCount + 1,
+            PREG_SPLIT_NO_EMPTY | PREG_SPLIT_OFFSET_CAPTURE
+        );
+        if (count($worlds) < $this->wordCount + 1) {
+            return $text;
         }
+        $this->needFormat = true;
+
+        $index = $worlds[array_key_last($worlds)][1];
+        return substr($text, 0, $index);
+    }
+
+    private function cropViaStopWorlds(string $text): string
+    {
+        if (empty($this->stopWords)) {
+            return $text;
+        }
+
+        $reverseStopWorlds = array_map(function ($string) {
+            return quotemeta(strrev($string));
+        }, $this->stopWords);
+        $reverseText = strrev($text);
+        $pattern = '/' . implode('|', $reverseStopWorlds) . '/';
+
+        $foundWorlds = preg_match($pattern, $reverseText, $matches, PREG_OFFSET_CAPTURE);
+        if (!$foundWorlds) {
+            return $text;
+        }
+        $this->needFormat = true;
+
+        $index = strlen($reverseText) - $matches[0][1];
+        return substr($text, 0, $index);
+    }
+
+    private function format(string $text): string
+    {
+        if (!$this->needFormat) {
+            return $text;
+        }
+
+        return trim($text) . $this->postfix;
     }
 }
