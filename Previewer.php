@@ -24,7 +24,7 @@ class Previewer
                 return !is_string($world);
             }));
             if (!empty($notStringData)) {
-                throw new Exception('аргумент $stopWords должен массив строк', 400);
+                throw new Exception('аргумент $stopWords должен содержать массив строк', 400);
             }
         }
 
