@@ -8,10 +8,6 @@ class Previewer
     private bool $needFormat = false;
 
     /**
-     * @param int $wordCount
-     * @param array $stopWords
-     * @param bool $isOneLine
-     * @param string $postfix
      * @throws Exception
      */
     public function __construct(int $wordCount, array $stopWords = [], bool $isOneLine = false, string $postfix = '')
