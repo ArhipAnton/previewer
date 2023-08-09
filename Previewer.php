@@ -17,14 +17,14 @@ class Previewer
     public function __construct(int $wordCount, array $stopWords = [], bool $isOneLine = false, string $postfix = '')
     {
         if ($wordCount <= 0) {
-            throw new Exception('аргумент $wordCount должен быть больше 0', 400);
+            throw new InvalidArgumentException('аргумент $wordCount должен быть больше 0', 400);
         }
         if (!empty($stopWords)) {
             $notStringData = (array_filter($stopWords, function ($world) {
                 return !is_string($world);
             }));
             if (!empty($notStringData)) {
-                throw new Exception('аргумент $stopWords должен содержать массив строк', 400);
+                throw new InvalidArgumentException('аргумент $stopWords должен содержать массив строк', 400);
             }
         }
 
